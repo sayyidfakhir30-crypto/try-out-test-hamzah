@@ -11,12 +11,12 @@
         .hidden { display: none; }
         .question-block { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
         .question-text { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .audio-script { background: #e8f4fd; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-style: italic; color: #2980b9; }
         .options label { display: block; background: #eef2f3; margin: 8px 0; padding: 10px; border-radius: 4px; cursor: pointer; }
         .options input { margin-left: 10px; }
         .correct-answer { background: #d4edda !important; border: 1px solid #c3e6cb; }
         .wrong-answer { background: #f8d7da !important; border: 1px solid #f5c6cb; }
         button { display: block; width: 100%; padding: 12px; background: #3498db; color: #fff; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; margin-top: 20px; }
-        button:disabled { background: #95a5a6; cursor: not-allowed; }
         .info-box { background: #fff3cd; padding: 15px; border-left: 5px solid #ffecb5; margin-bottom: 20px; text-align: right; }
         input[type="email"], input[type="text"] { width: 95%; padding: 10px; margin: 10px 0; font-size: 16px; }
     </style>
@@ -29,10 +29,8 @@
         Maklumat Aturan:<br>
         1. Masukkan email Anda untuk mendapatkan password akses.<br>
         2. Setiap halaman berisi 5 soal.<br>
-        3. Anda harus menjawab semua 5 soal untuk bisa melihat jawaban yang benar.<br>
-        4. Anda tidak bisa lanjut ke halaman berikutnya sebelum menekan tombol Lihat Jawaban.<br>
-        5. Anda tidak bisa kembali ke halaman sebelumnya.<br>
-        6. Nilai akhir akan muncul setelah semua soal diselesaikan.
+        3. Anda dapat langsung berpindah halaman untuk pengujian.<br>
+        4. Nilai akhir akan muncul setelah semua soal diselesaikan.
     </div>
     
     <label>Email:</label>
@@ -51,8 +49,8 @@
     <h3 id="pageIndicator">Halaman 1</h3>
     <div id="questionsContainer"></div>
     
-    <button id="btnReveal" onclick="revealAnswers()" disabled>Lihat Jawaban Benar</button>
-    <button id="btnNext" onclick="nextPage()" class="hidden">Halaman Berikutnya</button>
+    <button id="btnReveal" onclick="revealAnswers()">Lihat Jawaban Benar</button>
+    <button id="btnNext" onclick="nextPage()">Halaman Berikutnya</button>
 </div>
 
 <div class="container hidden" id="resultScreen">
@@ -62,16 +60,48 @@
 </div>
 
 <script>
-    let questions = []; 
-    // Data bank soal akan dimasukkan ke sini (contoh 5 soal untuk testing logika)
-    for(let i=1; i<=15; i++) {
-        questions.push({
-            id: i,
-            text: "[استماع/تراكيب/مقروء] Pertanyaan simulasi nomor " + i,
-            options: { A: "Pilihan A", B: "Pilihan B", C: "Pilihan C", D: "Pilihan D" },
+    let questions = [
+        {
+            id: 1,
+            type: "Masmu",
+            script: "[Audio Simulasi: استمع إلى الحوار ثم أجب] المدير: أين إبراهيم؟ الزميل: هو في غرفة الاجتماعات يقرأ التقرير.",
+            text: "أين يوجد إبراهيم حسب النص المسموع؟",
+            options: { A: "في المكتب", B: "في غرفة الاجتماعات", C: "في المطعم", D: "في البيت" },
             correct: "B"
-        });
-    }
+        },
+        {
+            id: 2,
+            type: "Masmu",
+            script: "[Audio Simulasi: استمع إلى الجملة] الطائرة تعود إلى المطار الساعة الخامسة مساءً.",
+            text: "متى تعود الطائرة إلى المطار؟",
+            options: { A: "الساعة الثالثة", B: "الساعة الرابعة", C: "الساعة الخامسة", D: "الساعة السادسة" },
+            correct: "C"
+        },
+        {
+            id: 3,
+            type: "Tarakib",
+            script: "",
+            text: "اختر الجملة الصحيحة نحويّاً: (ليت ... غائبون)",
+            options: { A: "الطلابُ", B: "الطلابَ", C: "الطلابِ", D: "طالبٌ" },
+            correct: "B"
+        },
+        {
+            id: 4,
+            type: "Tarakib",
+            script: "",
+            text: "املأ الفراغ بالكلمة المناسبة: لم يُسافرْ محمدٌ و... خالدٌ.",
+            options: { A: "لا", B: "لن", C: "لم", D: "ما" },
+            correct: "A"
+        },
+        {
+            id: 5,
+            type: "Maqru",
+            script: "",
+            text: "[قراءة الفهم] سكن خالد في مدينة الرياض خمس سنوات، ثم انتقل إلى جدة للعمل في التجارة.",
+            options: { A: "سكن خالد في مكة", B: "يعمل خالد في التجارة بجدة", C: "انتقل خالد إلى الدمام", D: "لم يسافر خالد قط" },
+            correct: "B"
+        }
+    ];
 
     const questionsPerPage = 5;
     let currentPage = 0;
@@ -99,15 +129,25 @@
         const end = start + questionsPerPage;
         const pageQuestions = questions.slice(start, end);
 
+        if(pageQuestions.length === 0) {
+            showResult();
+            return;
+        }
+
         pageQuestions.forEach((q, index) => {
             const qNum = start + index + 1;
-            let html = `<div class="question-block" id="qb-${q.id}">
-                <div class="question-text">${qNum}. ${q.text}</div>
+            let html = `<div class="question-block" id="qb-${q.id}">`;
+            
+            if(q.script !== "") {
+                html += `<div class="audio-script">🔊 Skrip Audio (${q.type}): ${q.script}</div>`;
+            }
+            
+            html += `<div class="question-text">${qNum}. [${q.type}] ${q.text}</div>
                 <div class="options">`;
             
             for(const [key, value] of Object.entries(q.options)) {
                 html += `<label id="lbl-${q.id}-${key}">
-                    <input type="radio" name="q${q.id}" value="${key}" onchange="checkCompletion()"> ${key}. ${value}
+                    <input type="radio" name="q${q.id}" value="${key}"> ${key}. ${value}
                 </label>`;
             }
             html += `</div></div>`;
@@ -115,24 +155,6 @@
         });
 
         document.getElementById("pageIndicator").innerText = "Halaman " + (currentPage + 1);
-        document.getElementById("btnReveal").disabled = true;
-        document.getElementById("btnReveal").classList.remove("hidden");
-        document.getElementById("btnNext").classList.add("hidden");
-    }
-
-    function checkCompletion() {
-        const start = currentPage * questionsPerPage;
-        const end = start + questionsPerPage;
-        const pageQuestions = questions.slice(start, end);
-        
-        let allAnswered = true;
-        pageQuestions.forEach(q => {
-            if(!document.querySelector(`input[name="q${q.id}"]:checked`)) {
-                allAnswered = false;
-            }
-        });
-
-        document.getElementById("btnReveal").disabled = !allAnswered;
     }
 
     function revealAnswers() {
@@ -141,20 +163,19 @@
         const pageQuestions = questions.slice(start, end);
 
         pageQuestions.forEach(q => {
-            const selected = document.querySelector(`input[name="q${q.id}"]:checked`).value;
-            if(selected === q.correct) totalScore += 2; // Asumsi bobot nilai
+            const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
+            if(selected && selected.value === q.correct) totalScore += 2;
             
-            document.getElementById(`lbl-${q.id}-${q.correct}`).classList.add("correct-answer");
-            if(selected !== q.correct) {
-                document.getElementById(`lbl-${q.id}-${selected}`).classList.add("wrong-answer");
+            if(document.getElementById(`lbl-${q.id}-${q.correct}`)) {
+                document.getElementById(`lbl-${q.id}-${q.correct}`).classList.add("correct-answer");
+            }
+            if(selected && selected.value !== q.correct) {
+                document.getElementById(`lbl-${q.id}-${selected.value}`).classList.add("wrong-answer");
             }
 
             const radios = document.querySelectorAll(`input[name="q${q.id}"]`);
             radios.forEach(r => r.disabled = true);
         });
-
-        document.getElementById("btnReveal").classList.add("hidden");
-        document.getElementById("btnNext").classList.remove("hidden");
     }
 
     function nextPage() {
@@ -170,7 +191,7 @@
     function showResult() {
         document.getElementById("quizScreen").classList.add("hidden");
         document.getElementById("resultScreen").classList.remove("hidden");
-        document.getElementById("finalScore").innerText = "Nilai Anda: " + totalScore;
+        document.getElementById("finalScore").innerText = "Nilai Sementara: " + totalScore;
     }
 </script>
 </body>
