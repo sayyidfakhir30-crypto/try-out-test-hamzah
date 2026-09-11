@@ -1,1 +1,198 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Try Out - Tes Hamzah</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; direction: rtl; text-align: right; }
+        .container { max-width: 700px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2, h3 { text-align: center; color: #2c3e50; }
+        .hidden { display: none; }
+        .question-block { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .question-text { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .audio-script { background: #e8f4fd; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-style: italic; color: #2980b9; }
+        .options label { display: block; background: #eef2f3; margin: 8px 0; padding: 10px; border-radius: 4px; cursor: pointer; }
+        .options input { margin-left: 10px; float: right; }
+        .correct-answer { background: #d4edda !important; border: 1px solid #c3e6cb; }
+        .wrong-answer { background: #f8d7da !important; border: 1px solid #f5c6cb; }
+        button { display: block; width: 100%; padding: 12px; background: #3498db; color: #fff; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; margin-top: 20px; }
+        .info-box { background: #fff3cd; padding: 15px; border-left: 5px solid #ffecb5; margin-bottom: 20px; }
+        input[type="email"], input[type="text"] { width: 95%; padding: 10px; margin: 10px 0; font-size: 16px; direction: ltr; text-align: left; }
+    </style>
+</head>
+<body>
 
+<div class="container" id="loginScreen">
+    <h2>تسجيل الدخول - Try Out Tes Hamzah</h2>
+    <div class="info-box">
+        Maklumat Aturan:<br>
+        1. Masukkan email Anda untuk mendapatkan password akses.<br>
+        2. Setiap halaman berisi 5 soal.<br>
+        3. Anda dapat langsung berpindah halaman.<br>
+        4. Nilai akhir akan muncul setelah semua soal diselesaikan.
+    </div>
+    
+    <label>Email:</label>
+    <input type="email" id="emailInput" placeholder="Masukkan email Anda">
+    <button onclick="generatePassword()">Dapatkan Password</button>
+
+    <div id="passwordArea" class="hidden">
+        <label>Password Anda (Otomatis):</label>
+        <input type="text" id="passwordInput" readonly>
+        <button onclick="startTryOut()">Mulai Try Out</button>
+    </div>
+</div>
+
+<div class="container hidden" id="quizScreen">
+    <h2 id="toTitle">Try Out 1</h2>
+    <h3 id="pageIndicator">Halaman 1</h3>
+    <div id="questionsContainer"></div>
+    
+    <button id="btnReveal" onclick="revealAnswers()">Lihat Jawaban Benar</button>
+    <button id="btnNext" onclick="nextPage()">Halaman Berikutnya</button>
+</div>
+
+<div class="container hidden" id="resultScreen">
+    <h2>النتيجة النهائية</h2>
+    <h3 id="finalScore"></h3>
+    <p style="text-align: center;">Terima kasih telah menyelesaikan Try Out ini.</p>
+</div>
+
+<script>
+    let questions = [
+        {
+            id: 1,
+            type: "Masmu",
+            script: "المدير: أين إبراهيم؟ الزميل: هو في غرفة الاجتماعات يقرأ التقرير.",
+            text: "أين يوجد إبراهيم حسب النص المسموع؟",
+            options: { A: "في المكتب", B: "في غرفة الاجتماعات", C: "في المطعم", D: "في البيت" },
+            correct: "B"
+        },
+        {
+            id: 2,
+            type: "Masmu",
+            script: "الطائرة تعود إلى المطار الساعة الخامسة مساءً.",
+            text: "متى تعود الطائرة إلى المطار؟",
+            options: { A: "الساعة الثالثة", B: "الساعة الرابعة", C: "الساعة الخامسة", D: "الساعة السادسة" },
+            correct: "C"
+        },
+        {
+            id: 3,
+            type: "Tarakib",
+            script: "",
+            text: "اختر الجملة الصحيحة نحويّاً: (ليت ... غائبون)",
+            options: { A: "الطلابُ", B: "الطلابَ", C: "الطلابِ", D: "طالبٌ" },
+            correct: "B"
+        },
+        {
+            id: 4,
+            type: "Tarakib",
+            script: "",
+            text: "املأ الفراغ بالكلمة المناسبة: لم يُسافرْ محمدٌ و... خالدٌ.",
+            options: { A: "لا", B: "لن", C: "لم", D: "ما" },
+            correct: "A"
+        },
+        {
+            id: 5,
+            type: "Maqru",
+            script: "",
+            text: "سكن خالد في مدينة الرياض خمس سنوات، ثم انتقل إلى جدة للعمل في التجارة.",
+            options: { A: "سكن خالد في مكة", B: "يعمل خالد في التجارة بجدة", C: "انتقل خالد إلى الدمام", D: "لم يسافر خالد قط" },
+            correct: "B"
+        }
+    ];
+
+    const questionsPerPage = 5;
+    let currentPage = 0;
+    let totalScore = 0;
+
+    function generatePassword() {
+        const email = document.getElementById("emailInput").value;
+        if(email === "") return alert("Masukkan email terlebih dahulu!");
+        const randomPass = Math.random().toString(36).substring(2, 8).toUpperCase();
+        document.getElementById("passwordInput").value = randomPass;
+        document.getElementById("passwordArea").classList.remove("hidden");
+    }
+
+    function startTryOut() {
+        document.getElementById("loginScreen").classList.add("hidden");
+        document.getElementById("quizScreen").classList.remove("hidden");
+        renderPage();
+    }
+
+    function renderPage() {
+        const container = document.getElementById("questionsContainer");
+        container.innerHTML = "";
+        
+        const start = currentPage * questionsPerPage;
+        const end = start + questionsPerPage;
+        const pageQuestions = questions.slice(start, end);
+
+        if(pageQuestions.length === 0) {
+            showResult();
+            return;
+        }
+
+        pageQuestions.forEach((q, index) => {
+            const qNum = start + index + 1;
+            let html = `<div class="question-block" id="qb-${q.id}">`;
+            
+            if(q.script !== "") {
+                html += `<div class="audio-script">🔊 Skrip Audio (${q.type}): ${q.script}</div>`;
+            }
+            
+            html += `<div class="question-text">${qNum}. [${q.type}] ${q.text}</div>
+                <div class="options">`;
+            
+            for(const [key, value] of Object.entries(q.options)) {
+                html += `<label id="lbl-${q.id}-${key}">
+                    <input type="radio" name="q${q.id}" value="${key}"> ${key}. ${value}
+                </label>`;
+            }
+            html += `</div></div>`;
+            container.innerHTML += html;
+        });
+
+        document.getElementById("pageIndicator").innerText = "Halaman " + (currentPage + 1);
+    }
+
+    function revealAnswers() {
+        const start = currentPage * questionsPerPage;
+        const end = start + questionsPerPage;
+        const pageQuestions = questions.slice(start, end);
+
+        pageQuestions.forEach(q => {
+            const selected = document.querySelector(`input[name="q${q.id}"]:checked`);
+            if(selected && selected.value === q.correct) totalScore += 2;
+            
+            if(document.getElementById(`lbl-${q.id}-${q.correct}`)) {
+                document.getElementById(`lbl-${q.id}-${q.correct}`).classList.add("correct-answer");
+            }
+            if(selected && selected.value !== q.correct) {
+                document.getElementById(`lbl-${q.id}-${selected.value}`).classList.add("wrong-answer");
+            }
+
+            const radios = document.querySelectorAll(`input[name="q${q.id}"]`);
+            radios.forEach(r => r.disabled = true);
+        });
+    }
+
+    function nextPage() {
+        currentPage++;
+        if(currentPage * questionsPerPage >= questions.length) {
+            showResult();
+        } else {
+            renderPage();
+            window.scrollTo(0, 0);
+        }
+    }
+
+    function showResult() {
+        document.getElementById("quizScreen").classList.add("hidden");
+        document.getElementById("resultScreen").classList.remove("hidden");
+        document.getElementById("finalScore").innerText = "Nilai Sementara: " + totalScore;
+    }
+</script>
+</body>
+</html>
